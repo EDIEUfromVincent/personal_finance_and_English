@@ -257,46 +257,11 @@ export function createGameEngine(initialSession = createInitialSession()) {
         return { session: previous, result: { ok: false, message: 'Game is finished.' } }
       }
 
-      if (previous.status === 'settled') {
-        const nextIndex = Math.min(previous.currentRoundIndex + 1, rounds.length - 1)
-        if (nextIndex === previous.currentRoundIndex) {
-          return {
-            session: { ...previous, status: 'finished' },
-            result: { ok: true, message: 'Game finished.' },
-          }
-        }
-
-        const resetStudents = Object.fromEntries(
-          Object.entries(previous.students).map(([id, student]) => [
-            id,
-            resetStudentForNextRound(student),
-          ]),
-        )
-
-        return {
-          session: appendAudit(
-            {
-              ...previous,
-              currentRoundIndex: nextIndex,
-              status: 'open',
-              roundEndsAt: Date.now() + ROUND_DURATION_MS,
-              students: resetStudents,
-            },
-            {
-              actor: 'teacher',
-              actorId: 'teacher-dashboard',
-              action: 'start_next_round',
-              detail: `Teacher started round ${rounds[nextIndex].round}.`,
-              severity: 'info',
-              round: rounds[nextIndex].round,
-            },
-          ),
-          result: { ok: true, message: 'Next round started.' },
-        }
-      }
-
       if (previous.status !== 'waiting') {
-        return { session: previous, result: { ok: false, message: 'Round cannot start now.' } }
+        return {
+          session: previous,
+          result: { ok: false, message: 'Use Next Round before starting again.' },
+        }
       }
 
       return {
@@ -835,6 +800,18 @@ export function createGameEngine(initialSession = createInitialSession()) {
       if (previous.status !== 'open') {
         return { session: previous, result: { ok: false, message: 'Round is not open.' } }
       }
+      if ((previous.roundEndsAt ?? 0) <= Date.now()) {
+        return {
+          session: previous,
+          result: { ok: false, message: 'Time is up. Ask your teacher for more time.' },
+        }
+      }
+      if (student.submitted) {
+        return {
+          session: previous,
+          result: { ok: false, message: 'Finance actions close after submitting.' },
+        }
+      }
       if (student.loanCount >= 2) {
         return { session: previous, result: { ok: false, message: 'Bank loan limit reached.' } }
       }
@@ -962,11 +939,26 @@ export function createGameEngine(initialSession = createInitialSession()) {
       if (borrowerId === lenderId) {
         return { session: previous, result: { ok: false, message: 'Choose a different lender.' } }
       }
+      if (!lender.isOccupied) {
+        return { session: previous, result: { ok: false, message: 'Choose an occupied lender.' } }
+      }
       if (!canUseStudentSlot(borrower, clientId)) {
         return blockedStudentAction(previous, borrower, clientId, 'blocked_peer_loan_request')
       }
       if (previous.status !== 'open') {
         return { session: previous, result: { ok: false, message: 'Round is not open.' } }
+      }
+      if ((previous.roundEndsAt ?? 0) <= Date.now()) {
+        return {
+          session: previous,
+          result: { ok: false, message: 'Time is up. Ask your teacher for more time.' },
+        }
+      }
+      if (borrower.submitted) {
+        return {
+          session: previous,
+          result: { ok: false, message: 'Finance actions close after submitting.' },
+        }
       }
       if (lender.cash < amount) {
         return { session: previous, result: { ok: false, message: 'Lender does not have enough cash.' } }

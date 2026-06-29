@@ -378,6 +378,17 @@ button:hover:not(:disabled) {
   margin-bottom: 12px;
 }
 
+.finance-note {
+  background: #f9faf7;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+}
+
 .finance-subpanel {
   border-top: 1px solid var(--border);
   display: grid;

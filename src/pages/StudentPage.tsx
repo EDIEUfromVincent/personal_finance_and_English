@@ -45,6 +45,7 @@ export function StudentPage({ studentId }: StudentPageProps) {
   const canUseCustomBet =
     (selectedStudent?.cash ?? 0) + (selectedStudent?.debt ?? 0) >= 100 &&
     canAct
+  const peerPayback = peerAmount + Math.ceil(peerAmount * 0.25)
 
   if (!selectedStudent) {
     return (
@@ -105,6 +106,23 @@ export function StudentPage({ studentId }: StudentPageProps) {
   const availableLenders = students.filter(
     (item) => item.id !== selectedStudent.id && item.isOccupied,
   )
+  const selectedPeerLender = availableLenders.find(
+    (lender) => lender.id === peerLenderId,
+  )
+  const pendingPeerLoan = session.peerLoanRequests.find(
+    (request) =>
+      request.borrowerId === selectedStudent.id && request.status === 'pending',
+  )
+  const bankLoansTaken = session.bankLoanRequests.filter(
+    (request) =>
+      request.studentId === selectedStudent.id && request.status === 'approved',
+  )
+  const pendingPeerLenderName = pendingPeerLoan
+    ? (students.find((item) => item.id === pendingPeerLoan.lenderId)?.name ??
+      'classmate')
+    : ''
+  const lenderHasEnoughCash =
+    !selectedPeerLender || selectedPeerLender.cash >= peerAmount
 
   const resultLabel =
     selectedStudent.lastResult === 'correct'
@@ -269,9 +287,22 @@ export function StudentPage({ studentId }: StudentPageProps) {
             <div className="panel-heading compact-heading">
               <div>
                 <p className="eyebrow">Bank Loan</p>
-                <h3>Teacher Approval</h3>
+                <h3>Instant Borrowing</h3>
               </div>
             </div>
+            <p className="muted">
+              Cash increases immediately. Debt already includes the payback
+              amount.
+            </p>
+            <p className="finance-note">
+              Bank loans used: {selectedStudent.loanCount} / 2
+              {bankLoansTaken.length > 0
+                ? ` · latest payback $${bankLoansTaken[0].payback}`
+                : ''}
+            </p>
+            {selectedStudent.loanCount >= 2 ? (
+              <p className="message">Bank loan limit reached.</p>
+            ) : null}
             <div className="finance-actions">
               {LOAN_AMOUNTS.map((amount) => (
                 <button
@@ -296,10 +327,24 @@ export function StudentPage({ studentId }: StudentPageProps) {
                 <h3>Borrow From Classmate</h3>
               </div>
             </div>
+            <p className="muted">
+              Peer loans need teacher approval because money moves from another
+              occupied student.
+            </p>
+            {pendingPeerLoan ? (
+              <p className="finance-note">
+                Pending: ${pendingPeerLoan.amount} from {pendingPeerLenderName},
+                pay back ${pendingPeerLoan.payback}.
+              </p>
+            ) : null}
             <label>
               Lender
               <select
-                disabled={!canUseFinance || availableLenders.length === 0}
+                disabled={
+                  !canUseFinance ||
+                  availableLenders.length === 0 ||
+                  Boolean(pendingPeerLoan)
+                }
                 onChange={(event) => setPeerLenderId(event.target.value)}
                 value={peerLenderId}
               >
@@ -311,11 +356,20 @@ export function StudentPage({ studentId }: StudentPageProps) {
                 ))}
               </select>
             </label>
+            {availableLenders.length === 0 ? (
+              <p className="message">No occupied classmates can lend yet.</p>
+            ) : null}
+            {!lenderHasEnoughCash ? (
+              <p className="message">
+                That lender only has ${selectedPeerLender?.cash}. Choose a
+                smaller amount or another lender.
+              </p>
+            ) : null}
             <div className="finance-actions">
               {LOAN_AMOUNTS.map((amount) => (
                 <button
                   className={peerAmount === amount ? 'selected amount-button' : ''}
-                  disabled={!canUseFinance}
+                  disabled={!canUseFinance || Boolean(pendingPeerLoan)}
                   key={`peer-${amount}`}
                   onClick={() => setPeerAmount(amount)}
                   type="button"
@@ -326,11 +380,16 @@ export function StudentPage({ studentId }: StudentPageProps) {
             </div>
             <button
               className="secondary-button full-width"
-              disabled={!canUseFinance || !peerLenderId}
+              disabled={
+                !canUseFinance ||
+                !peerLenderId ||
+                Boolean(pendingPeerLoan) ||
+                !lenderHasEnoughCash
+              }
               onClick={askPeerLoan}
               type="button"
             >
-              Request Peer Loan · Pay back ${peerAmount + Math.ceil(peerAmount * 0.25)}
+              Request Peer Loan · Pay back ${peerPayback}
             </button>
           </div>
         ) : null}
