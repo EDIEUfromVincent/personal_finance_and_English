@@ -3,6 +3,7 @@ import { rounds } from '../data/rounds'
 import type {
   AnswerOption,
   GameSession,
+  LoanAmount,
   SavingAmount,
   Student,
 } from '../types/game'
@@ -45,6 +46,23 @@ export type GameContextValue = {
   withdrawSavings: (
     studentId: string,
     amount: SavingAmount,
+  ) => Promise<ActionResult>
+  requestBankLoan: (
+    studentId: string,
+    amount: LoanAmount,
+  ) => Promise<ActionResult>
+  resolveBankLoan: (
+    requestId: string,
+    approved: boolean,
+  ) => Promise<ActionResult>
+  requestPeerLoan: (
+    borrowerId: string,
+    lenderId: string,
+    amount: LoanAmount,
+  ) => Promise<ActionResult>
+  resolvePeerLoan: (
+    requestId: string,
+    approved: boolean,
   ) => Promise<ActionResult>
 }
 

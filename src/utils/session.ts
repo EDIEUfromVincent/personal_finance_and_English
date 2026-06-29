@@ -41,6 +41,8 @@ export function createInitialSession(): GameSession {
     currentRoundIndex: 0,
     roundEndsAt: null,
     students: createStudents(),
+    bankLoanRequests: [],
+    peerLoanRequests: [],
     auditLog: [],
     stateDigest: '',
     createdAt: now,

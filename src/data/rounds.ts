@@ -69,7 +69,7 @@ export const rounds: Round[] = [
       'She is going to make a card.',
     ],
     correctAnswer: 2,
-    allowedFeatures: ['betting', 'saving', 'interest'],
+    allowedFeatures: ['betting', 'saving', 'interest', 'bankLoan'],
   },
   {
     round: 6,
@@ -111,7 +111,7 @@ export const rounds: Round[] = [
       'They are going to have a good time.',
     ],
     correctAnswer: 4,
-    allowedFeatures: ['betting', 'saving', 'interest', 'bankLoan'],
+    allowedFeatures: ['betting', 'saving', 'interest', 'bankLoan', 'peerLoan'],
   },
   {
     round: 9,

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { BET_AMOUNTS, SAVING_AMOUNTS } from '../data/constants'
+import { BET_AMOUNTS, LOAN_AMOUNTS, SAVING_AMOUNTS } from '../data/constants'
 import { QuestionPanel } from '../components/QuestionPanel'
 import { useGame } from '../state/useGame'
-import type { AnswerOption } from '../types/game'
+import type { AnswerOption, LoanAmount } from '../types/game'
 import { canBet, calculateInterest } from '../utils/finance'
 
 type StudentPageProps = {
@@ -19,11 +19,15 @@ export function StudentPage({ studentId }: StudentPageProps) {
     submitAnswer,
     saveMoney,
     withdrawSavings,
+    requestBankLoan,
+    requestPeerLoan,
   } = useGame()
   const student = students.find((item) => item.id === studentId)
   const [answer, setAnswer] = useState<AnswerOption | null>(null)
   const [bet, setBet] = useState<number | null>(null)
   const [customBet, setCustomBet] = useState('')
+  const [peerLenderId, setPeerLenderId] = useState('')
+  const [peerAmount, setPeerAmount] = useState<LoanAmount>(10)
   const [message, setMessage] = useState('')
 
   const selectedStudent = useMemo(() => student, [student])
@@ -33,6 +37,8 @@ export function StudentPage({ studentId }: StudentPageProps) {
     !selectedStudent?.submitted
   const savingsEnabled = currentRound.allowedFeatures.includes('saving')
   const interestEnabled = currentRound.allowedFeatures.includes('interest')
+  const bankLoanEnabled = currentRound.allowedFeatures.includes('bankLoan')
+  const peerLoanEnabled = currentRound.allowedFeatures.includes('peerLoan')
   const revealed = session.status === 'revealed' || session.status === 'settled'
   const canUseFinance =
     session.status === 'open' && timeRemainingSeconds > 0 && !selectedStudent?.submitted
@@ -84,6 +90,21 @@ export function StudentPage({ studentId }: StudentPageProps) {
         : await withdrawSavings(selectedStudent.id, amount)
     setMessage(result.message)
   }
+  const askBankLoan = async (amount: LoanAmount) => {
+    const result = await requestBankLoan(selectedStudent.id, amount)
+    setMessage(result.message)
+  }
+  const askPeerLoan = async () => {
+    if (!peerLenderId) {
+      setMessage('Choose a lender first.')
+      return
+    }
+    const result = await requestPeerLoan(selectedStudent.id, peerLenderId, peerAmount)
+    setMessage(result.message)
+  }
+  const availableLenders = students.filter(
+    (item) => item.id !== selectedStudent.id && item.isOccupied,
+  )
 
   const resultLabel =
     selectedStudent.lastResult === 'correct'
@@ -203,7 +224,7 @@ export function StudentPage({ studentId }: StudentPageProps) {
             <h2>Saving Tools</h2>
           </div>
           {interestEnabled ? (
-            <span className="status-pill">Interest {calculateInterest(selectedStudent.savings)}</span>
+            <span className="status-pill">Next +${calculateInterest(selectedStudent.savings)}</span>
           ) : null}
         </div>
 
@@ -212,7 +233,7 @@ export function StudentPage({ studentId }: StudentPageProps) {
             <p className="muted">
               {selectedStudent.submitted
                 ? 'Finance actions close after submitting.'
-                : 'Move Classroom Money between cash and savings while the round is open.'}
+                : 'Savings earn 10% compound interest when the class moves to the next round.'}
             </p>
             <div className="finance-actions">
               {SAVING_AMOUNTS.map((amount) => (
@@ -240,8 +261,78 @@ export function StudentPage({ studentId }: StudentPageProps) {
             </div>
           </>
         ) : (
-          <p className="muted">Saving opens in round 3. Loans, investments, and insurance are not in Phase 1.</p>
+          <p className="muted">Saving opens in round 3.</p>
         )}
+
+        {bankLoanEnabled ? (
+          <div className="finance-subpanel">
+            <div className="panel-heading compact-heading">
+              <div>
+                <p className="eyebrow">Bank Loan</p>
+                <h3>Teacher Approval</h3>
+              </div>
+            </div>
+            <div className="finance-actions">
+              {LOAN_AMOUNTS.map((amount) => (
+                <button
+                  disabled={!canUseFinance || selectedStudent.loanCount >= 2}
+                  key={`bank-${amount}`}
+                  onClick={() => askBankLoan(amount)}
+                  type="button"
+                >
+                  Borrow ${amount}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {peerLoanEnabled ? (
+          <div className="finance-subpanel">
+            <div className="panel-heading compact-heading">
+              <div>
+                <p className="eyebrow">Peer Loan</p>
+                <h3>Borrow From Classmate</h3>
+              </div>
+            </div>
+            <label>
+              Lender
+              <select
+                disabled={!canUseFinance || availableLenders.length === 0}
+                onChange={(event) => setPeerLenderId(event.target.value)}
+                value={peerLenderId}
+              >
+                <option value="">Choose lender</option>
+                {availableLenders.map((lender) => (
+                  <option key={lender.id} value={lender.id}>
+                    {lender.number}. {lender.name} (${lender.cash})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="finance-actions">
+              {LOAN_AMOUNTS.map((amount) => (
+                <button
+                  className={peerAmount === amount ? 'selected amount-button' : ''}
+                  disabled={!canUseFinance}
+                  key={`peer-${amount}`}
+                  onClick={() => setPeerAmount(amount)}
+                  type="button"
+                >
+                  ${amount}
+                </button>
+              ))}
+            </div>
+            <button
+              className="secondary-button full-width"
+              disabled={!canUseFinance || !peerLenderId}
+              onClick={askPeerLoan}
+              type="button"
+            >
+              Request Peer Loan
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
   )

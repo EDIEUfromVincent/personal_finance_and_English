@@ -11,6 +11,7 @@ import type { PublicGameState, ActionResult } from '../engine/gameEngine'
 import type {
   AnswerOption,
   GameSession,
+  LoanAmount,
   SavingAmount,
 } from '../types/game'
 import { createInitialSession } from '../utils/session'
@@ -206,6 +207,35 @@ export function SocketGameProvider({ children }: { children: ReactNode }) {
       }),
     [clientId, socket],
   )
+  const requestBankLoan = useCallback(
+    (studentId: string, amount: LoanAmount) =>
+      askServer(socket, 'student:requestBankLoan', {
+        clientId,
+        studentId,
+        amount,
+      }),
+    [clientId, socket],
+  )
+  const resolveBankLoan = useCallback(
+    (requestId: string, approved: boolean) =>
+      askServer(socket, 'teacher:resolveBankLoan', { requestId, approved }),
+    [socket],
+  )
+  const requestPeerLoan = useCallback(
+    (borrowerId: string, lenderId: string, amount: LoanAmount) =>
+      askServer(socket, 'student:requestPeerLoan', {
+        clientId,
+        borrowerId,
+        lenderId,
+        amount,
+      }),
+    [clientId, socket],
+  )
+  const resolvePeerLoan = useCallback(
+    (requestId: string, approved: boolean) =>
+      askServer(socket, 'teacher:resolvePeerLoan', { requestId, approved }),
+    [socket],
+  )
 
   const value: GameContextValue = {
     clientId,
@@ -232,6 +262,10 @@ export function SocketGameProvider({ children }: { children: ReactNode }) {
     submitAnswer,
     saveMoney,
     withdrawSavings,
+    requestBankLoan,
+    resolveBankLoan,
+    requestPeerLoan,
+    resolvePeerLoan,
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

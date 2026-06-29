@@ -322,8 +322,14 @@ button:hover:not(:disabled) {
 .finance-actions {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
   margin-bottom: 12px;
+}
+
+.finance-actions button {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding-inline: 8px;
 }
 
 .amount-button {
@@ -355,10 +361,60 @@ button:hover:not(:disabled) {
 
 .finance-panel {
   align-self: start;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .finance-panel .muted {
   margin-bottom: 12px;
+}
+
+.finance-subpanel {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.compact-heading {
+  margin-bottom: 0;
+}
+
+.custom-bet-label {
+  margin-bottom: 12px;
+}
+
+.loan-queue {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.loan-queue > div {
+  display: grid;
+  gap: 10px;
+}
+
+.loan-item {
+  align-items: center;
+  background: #f9faf7;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.loan-item p {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.loan-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .table-wrap {
@@ -544,7 +600,8 @@ tr.high-debt td {
   .wallet-grid,
   .control-grid,
   .bet-grid,
-  .finance-actions {
+  .finance-actions,
+  .loan-queue {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -563,6 +620,10 @@ tr.high-debt td {
   }
 
   .audit-item {
+    grid-template-columns: 1fr;
+  }
+
+  .loan-item {
     grid-template-columns: 1fr;
   }
 

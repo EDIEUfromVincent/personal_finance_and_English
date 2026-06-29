@@ -2,7 +2,7 @@ import { rounds } from '../data/rounds'
 import type {
   AuditEvent,
   AnswerOption,
-  BetAmount,
+  LoanAmount,
   GameSession,
   SavingAmount,
   Student,
@@ -10,6 +10,7 @@ import type {
 import {
   canBet,
   calculateInterest,
+  getBankLoanPayback,
   normalizeStudent,
   resetStudentForNextRound,
   settleStudentBet,
@@ -64,6 +65,8 @@ function calculateSessionDigest(session: GameSession): string {
       status: session.status,
       currentRoundIndex: session.currentRoundIndex,
       roundEndsAt: session.roundEndsAt,
+      bankLoanRequests: session.bankLoanRequests,
+      peerLoanRequests: session.peerLoanRequests,
       students,
     }),
   )
@@ -156,8 +159,62 @@ function blockedStudentAction(
   }
 }
 
-function ensureBetAmount(value: number): value is BetAmount {
+function ensureBetAmount(value: number): boolean {
   return Number.isInteger(value) && value > 0
+}
+
+function ensureLoanAmount(value: number): value is LoanAmount {
+  return value === 10 || value === 20 || value === 30 || value === 50
+}
+
+function getPeerLoanPayback(amount: LoanAmount): number {
+  return amount + Math.ceil(amount * 0.25)
+}
+
+function applyCompoundInterest(session: GameSession): {
+  session: GameSession
+  events: AuditEvent[]
+} {
+  const round = rounds[session.currentRoundIndex]
+  if (!round.allowedFeatures.includes('interest')) {
+    return { session, events: [] }
+  }
+
+  const events: AuditEvent[] = []
+  const students = Object.fromEntries(
+    Object.entries(session.students).map(([id, student]) => {
+      const interest = calculateInterest(student.savings)
+      if (interest <= 0) return [id, student]
+
+      const before = moneySnapshot(student)
+      const updated = normalizeStudent({
+        ...student,
+        savings: student.savings + interest,
+      })
+      events.push(
+        createAuditEvent(session, {
+          actor: 'system',
+          actorId: 'compound-interest',
+          action: 'compound_interest',
+          detail: `${student.name} earned $${interest} compound interest in savings.`,
+          severity: 'info',
+          studentId: student.id,
+          studentName: student.name,
+          before,
+          after: moneySnapshot(updated),
+        }),
+      )
+      return [id, updated]
+    }),
+  )
+
+  return {
+    session: {
+      ...session,
+      students,
+    },
+    events,
+  }
 }
 
 export function createGameEngine(initialSession = createInitialSession()) {
@@ -405,7 +462,6 @@ export function createGameEngine(initialSession = createInitialSession()) {
         return { session: previous, result: { ok: false, message: 'Reveal first.' } }
       }
       const round = rounds[previous.currentRoundIndex]
-      const paysInterest = round.allowedFeatures.includes('interest')
       const settlementEvents: AuditEvent[] = []
 
       const students = Object.fromEntries(
@@ -420,11 +476,7 @@ export function createGameEngine(initialSession = createInitialSession()) {
                   lastResult: 'none' as const,
                 }
           const settled = settleStudentBet(withMissPenalty, round)
-          const withInterest =
-            paysInterest && settled.submitted
-              ? { ...settled, cash: settled.cash + calculateInterest(settled.savings) }
-              : settled
-          const normalized = normalizeStudent(withInterest)
+          const normalized = normalizeStudent(settled)
           settlementEvents.push(
             createAuditEvent(previous, {
               actor: 'system',
@@ -463,9 +515,13 @@ export function createGameEngine(initialSession = createInitialSession()) {
         return { session: previous, result: { ok: false, message: 'Settle first.' } }
       }
       if (previous.currentRoundIndex >= rounds.length - 1) {
+        const withInterest = applyCompoundInterest(previous)
         return {
           session: appendAudit(
-            { ...previous, status: 'finished' },
+            appendAuditEvents(
+              { ...withInterest.session, status: 'finished' },
+              withInterest.events,
+            ),
             {
               actor: 'teacher',
               actorId: 'teacher-dashboard',
@@ -478,20 +534,24 @@ export function createGameEngine(initialSession = createInitialSession()) {
         }
       }
 
+      const withInterest = applyCompoundInterest(previous)
       return {
         session: appendAudit(
+          appendAuditEvents(
           {
-            ...previous,
+            ...withInterest.session,
             status: 'waiting',
             roundEndsAt: null,
-            currentRoundIndex: previous.currentRoundIndex + 1,
+            currentRoundIndex: withInterest.session.currentRoundIndex + 1,
             students: Object.fromEntries(
-              Object.entries(previous.students).map(([id, student]) => [
+              Object.entries(withInterest.session.students).map(([id, student]) => [
                 id,
                 resetStudentForNextRound(student),
               ]),
             ),
           },
+          withInterest.events,
+          ),
           {
             actor: 'teacher',
             actorId: 'teacher-dashboard',
@@ -755,6 +815,276 @@ export function createGameEngine(initialSession = createInitialSession()) {
     })
   }
 
+  function requestBankLoan(
+    clientId: string,
+    studentId: string,
+    amount: LoanAmount,
+  ): ActionResult {
+    return commit((previous) => {
+      const student = previous.students[studentId]
+      const round = rounds[previous.currentRoundIndex]
+      if (!ensureLoanAmount(amount)) {
+        return { session: previous, result: { ok: false, message: 'Invalid loan amount.' } }
+      }
+      if (!student || !round.allowedFeatures.includes('bankLoan')) {
+        return { session: previous, result: { ok: false, message: 'Bank loan is not available.' } }
+      }
+      if (!canUseStudentSlot(student, clientId)) {
+        return blockedStudentAction(previous, student, clientId, 'blocked_bank_loan_request')
+      }
+      if (previous.status !== 'open') {
+        return { session: previous, result: { ok: false, message: 'Round is not open.' } }
+      }
+      if (student.loanCount >= 2) {
+        return { session: previous, result: { ok: false, message: 'Bank loan limit reached.' } }
+      }
+      if (
+        previous.bankLoanRequests.some(
+          (request) =>
+            request.studentId === studentId && request.status === 'pending',
+        )
+      ) {
+        return { session: previous, result: { ok: false, message: 'Bank loan request already pending.' } }
+      }
+
+      const payback = getBankLoanPayback(amount)
+      const request = {
+        id: `bank-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        studentId,
+        amount,
+        payback,
+        status: 'pending' as const,
+        createdAt: Date.now(),
+      }
+
+      return {
+        session: appendAudit(
+          {
+            ...previous,
+            bankLoanRequests: [request, ...previous.bankLoanRequests],
+          },
+          {
+            actor: 'student',
+            actorId: clientId,
+            action: 'request_bank_loan',
+            detail: `${student.name} requested a $${amount} bank loan with $${payback} payback.`,
+            severity: 'info',
+            studentId,
+            studentName: student.name,
+          },
+        ),
+        result: { ok: true, message: 'Bank loan requested. Wait for teacher approval.' },
+      }
+    })
+  }
+
+  function resolveBankLoan(requestId: string, approved: boolean): ActionResult {
+    return commit((previous) => {
+      const request = previous.bankLoanRequests.find((item) => item.id === requestId)
+      if (!request || request.status !== 'pending') {
+        return { session: previous, result: { ok: false, message: 'Bank loan request not found.' } }
+      }
+      const student = previous.students[request.studentId]
+      if (!student) {
+        return { session: previous, result: { ok: false, message: 'Student not found.' } }
+      }
+
+      const bankLoanRequests = previous.bankLoanRequests.map((item) =>
+        item.id === requestId
+          ? { ...item, status: approved ? 'approved' as const : 'rejected' as const }
+          : item,
+      )
+
+      if (!approved) {
+        return {
+          session: appendAudit(
+            { ...previous, bankLoanRequests },
+            {
+              actor: 'teacher',
+              actorId: 'teacher-dashboard',
+              action: 'reject_bank_loan',
+              detail: `Teacher rejected ${student.name}'s $${request.amount} bank loan.`,
+              severity: 'warning',
+              studentId: student.id,
+              studentName: student.name,
+            },
+          ),
+          result: { ok: true, message: 'Bank loan rejected.' },
+        }
+      }
+
+      const before = moneySnapshot(student)
+      const updatedSession = updateStudent(
+        { ...previous, bankLoanRequests },
+        request.studentId,
+        (current) => ({
+          ...current,
+          cash: current.cash + request.amount,
+          debt: current.debt + request.payback,
+          loanCount: current.loanCount + 1,
+        }),
+      )
+
+      return {
+        session: appendAudit(updatedSession, {
+          actor: 'teacher',
+          actorId: 'teacher-dashboard',
+          action: 'approve_bank_loan',
+          detail: `Teacher approved ${student.name}'s $${request.amount} bank loan. Payback is $${request.payback}.`,
+          severity: 'info',
+          studentId: student.id,
+          studentName: student.name,
+          before,
+          after: moneySnapshot(updatedSession.students[request.studentId]),
+        }),
+        result: { ok: true, message: 'Bank loan approved.' },
+      }
+    })
+  }
+
+  function requestPeerLoan(
+    clientId: string,
+    borrowerId: string,
+    lenderId: string,
+    amount: LoanAmount,
+  ): ActionResult {
+    return commit((previous) => {
+      const borrower = previous.students[borrowerId]
+      const lender = previous.students[lenderId]
+      const round = rounds[previous.currentRoundIndex]
+      if (!ensureLoanAmount(amount)) {
+        return { session: previous, result: { ok: false, message: 'Invalid loan amount.' } }
+      }
+      if (!borrower || !lender || !round.allowedFeatures.includes('peerLoan')) {
+        return { session: previous, result: { ok: false, message: 'Peer loan is not available.' } }
+      }
+      if (borrowerId === lenderId) {
+        return { session: previous, result: { ok: false, message: 'Choose a different lender.' } }
+      }
+      if (!canUseStudentSlot(borrower, clientId)) {
+        return blockedStudentAction(previous, borrower, clientId, 'blocked_peer_loan_request')
+      }
+      if (previous.status !== 'open') {
+        return { session: previous, result: { ok: false, message: 'Round is not open.' } }
+      }
+      if (lender.cash < amount) {
+        return { session: previous, result: { ok: false, message: 'Lender does not have enough cash.' } }
+      }
+      if (
+        previous.peerLoanRequests.some(
+          (request) =>
+            request.borrowerId === borrowerId && request.status === 'pending',
+        )
+      ) {
+        return { session: previous, result: { ok: false, message: 'Peer loan request already pending.' } }
+      }
+
+      const payback = getPeerLoanPayback(amount)
+      const request = {
+        id: `peer-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        lenderId,
+        borrowerId,
+        amount,
+        payback,
+        dueRound: Math.min(round.round + 2, rounds.length),
+        status: 'pending' as const,
+        createdAt: Date.now(),
+      }
+
+      return {
+        session: appendAudit(
+          {
+            ...previous,
+            peerLoanRequests: [request, ...previous.peerLoanRequests],
+          },
+          {
+            actor: 'student',
+            actorId: clientId,
+            action: 'request_peer_loan',
+            detail: `${borrower.name} requested $${amount} from ${lender.name}. Payback is $${payback}.`,
+            severity: 'info',
+            studentId: borrower.id,
+            studentName: borrower.name,
+          },
+        ),
+        result: { ok: true, message: 'Peer loan requested. Wait for teacher approval.' },
+      }
+    })
+  }
+
+  function resolvePeerLoan(requestId: string, approved: boolean): ActionResult {
+    return commit((previous) => {
+      const request = previous.peerLoanRequests.find((item) => item.id === requestId)
+      if (!request || request.status !== 'pending') {
+        return { session: previous, result: { ok: false, message: 'Peer loan request not found.' } }
+      }
+      const borrower = previous.students[request.borrowerId]
+      const lender = previous.students[request.lenderId]
+      if (!borrower || !lender) {
+        return { session: previous, result: { ok: false, message: 'Student not found.' } }
+      }
+
+      const peerLoanRequests = previous.peerLoanRequests.map((item) =>
+        item.id === requestId
+          ? { ...item, status: approved ? 'approved' as const : 'rejected' as const }
+          : item,
+      )
+
+      if (!approved) {
+        return {
+          session: appendAudit(
+            { ...previous, peerLoanRequests },
+            {
+              actor: 'teacher',
+              actorId: 'teacher-dashboard',
+              action: 'reject_peer_loan',
+              detail: `Teacher rejected ${borrower.name}'s peer loan from ${lender.name}.`,
+              severity: 'warning',
+              studentId: borrower.id,
+              studentName: borrower.name,
+            },
+          ),
+          result: { ok: true, message: 'Peer loan rejected.' },
+        }
+      }
+
+      if (lender.cash < request.amount) {
+        return { session: previous, result: { ok: false, message: 'Lender does not have enough cash.' } }
+      }
+
+      const borrowerBefore = moneySnapshot(borrower)
+      const lenderBefore = moneySnapshot(lender)
+      let updatedSession = { ...previous, peerLoanRequests }
+      updatedSession = updateStudent(updatedSession, request.lenderId, (current) => ({
+        ...current,
+        cash: current.cash - request.amount,
+      }))
+      updatedSession = updateStudent(updatedSession, request.borrowerId, (current) => ({
+        ...current,
+        cash: current.cash + request.amount,
+        debt: current.debt + request.payback,
+      }))
+
+      return {
+        session: appendAudit(updatedSession, {
+          actor: 'teacher',
+          actorId: 'teacher-dashboard',
+          action: 'approve_peer_loan',
+          detail: `Teacher approved $${request.amount} from ${lender.name} to ${borrower.name}. Payback is $${request.payback}.`,
+          severity: 'info',
+          studentId: borrower.id,
+          studentName: borrower.name,
+          before: borrowerBefore,
+          after: moneySnapshot(updatedSession.students[request.borrowerId]),
+        }),
+        result: {
+          ok: true,
+          message: `Peer loan approved. ${lender.name}: $${lenderBefore.cash} -> $${updatedSession.students[request.lenderId].cash}.`,
+        },
+      }
+    })
+  }
+
   return {
     getState,
     resetGame,
@@ -772,5 +1102,9 @@ export function createGameEngine(initialSession = createInitialSession()) {
     submitAnswer,
     saveMoney,
     withdrawSavings,
+    requestBankLoan,
+    resolveBankLoan,
+    requestPeerLoan,
+    resolvePeerLoan,
   }
 }

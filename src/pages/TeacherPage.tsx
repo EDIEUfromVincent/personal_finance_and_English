@@ -11,10 +11,10 @@ const featureLabels: Record<string, string> = {
   betting: 'Betting',
   saving: 'Saving',
   interest: 'Interest',
-  bankLoan: 'Bank loan later',
-  peerLoan: 'Peer loan later',
-  investment: 'Investment later',
-  insurance: 'Insurance later',
+  bankLoan: 'Bank loan',
+  peerLoan: 'Peer loan',
+  investment: 'Investment locked',
+  insurance: 'Insurance locked',
 }
 
 function sortStudents(students: Student[], sortMode: SortMode) {
@@ -47,6 +47,8 @@ export function TeacherPage() {
     ranking,
     resetGame,
     releaseSlot,
+    resolveBankLoan,
+    resolvePeerLoan,
     revealRound,
     reopenRound,
     restartCurrentRound,
@@ -73,8 +75,8 @@ export function TeacherPage() {
           <p className="eyebrow">Teacher Dashboard</p>
           <h1>{session.title}</h1>
           <p className="muted">
-            Session {session.id}. Phase 1 uses local browser state for the
-            classroom harness.
+            Session {session.id}. The server controls money, loans, settlement,
+            and ranking.
           </p>
         </div>
         <div className="session-stats">
@@ -278,6 +280,81 @@ export function TeacherPage() {
             <li>Best English Speaker</li>
           </ul>
         </section>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Loans</p>
+            <h2>Approval Queue</h2>
+          </div>
+        </div>
+
+        <div className="loan-queue">
+          <div>
+            <h3>Bank Loans</h3>
+            {session.bankLoanRequests.filter((request) => request.status === 'pending').length === 0 ? (
+              <p className="muted">No pending bank loans.</p>
+            ) : (
+              session.bankLoanRequests
+                .filter((request) => request.status === 'pending')
+                .map((request) => {
+                  const student = session.students[request.studentId]
+                  return (
+                    <article className="loan-item" key={request.id}>
+                      <div>
+                        <strong>{student?.name ?? request.studentId}</strong>
+                        <p>
+                          Borrow ${request.amount}, pay back ${request.payback}
+                        </p>
+                      </div>
+                      <div className="loan-actions">
+                        <button onClick={() => resolveBankLoan(request.id, true)} type="button">
+                          Approve
+                        </button>
+                        <button className="danger-button" onClick={() => resolveBankLoan(request.id, false)} type="button">
+                          Reject
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })
+            )}
+          </div>
+
+          <div>
+            <h3>Peer Loans</h3>
+            {session.peerLoanRequests.filter((request) => request.status === 'pending').length === 0 ? (
+              <p className="muted">No pending peer loans.</p>
+            ) : (
+              session.peerLoanRequests
+                .filter((request) => request.status === 'pending')
+                .map((request) => {
+                  const borrower = session.students[request.borrowerId]
+                  const lender = session.students[request.lenderId]
+                  return (
+                    <article className="loan-item" key={request.id}>
+                      <div>
+                        <strong>{borrower?.name ?? request.borrowerId}</strong>
+                        <p>
+                          From {lender?.name ?? request.lenderId}: ${request.amount},
+                          pay back ${request.payback} by round {request.dueRound}
+                        </p>
+                      </div>
+                      <div className="loan-actions">
+                        <button onClick={() => resolvePeerLoan(request.id, true)} type="button">
+                          Approve
+                        </button>
+                        <button className="danger-button" onClick={() => resolvePeerLoan(request.id, false)} type="button">
+                          Reject
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="panel">

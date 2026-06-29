@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Server } from 'socket.io'
 import { createGameEngine, type ActionResult } from '../src/engine/gameEngine'
-import type { AnswerOption, SavingAmount } from '../src/types/game'
+import type { AnswerOption, LoanAmount, SavingAmount } from '../src/types/game'
 
 const app = express()
 const httpServer = createServer(app)
@@ -65,6 +65,26 @@ io.on('connection', (socket) => {
   socket.on('teacher:releaseSlot', (studentId: string, callback) => {
     callback?.(runAndBroadcast(() => engine.releaseSlot(studentId)))
   })
+  socket.on(
+    'teacher:resolveBankLoan',
+    (payload: { requestId: string; approved: boolean }, callback) => {
+      callback?.(
+        runAndBroadcast(() =>
+          engine.resolveBankLoan(payload.requestId, payload.approved),
+        ),
+      )
+    },
+  )
+  socket.on(
+    'teacher:resolvePeerLoan',
+    (payload: { requestId: string; approved: boolean }, callback) => {
+      callback?.(
+        runAndBroadcast(() =>
+          engine.resolvePeerLoan(payload.requestId, payload.approved),
+        ),
+      )
+    },
+  )
 
   socket.on(
     'student:claimSlot',
@@ -126,6 +146,42 @@ io.on('connection', (socket) => {
           engine.withdrawSavings(
             payload.clientId,
             payload.studentId,
+            payload.amount,
+          ),
+        ),
+      )
+    },
+  )
+  socket.on(
+    'student:requestBankLoan',
+    (
+      payload: { clientId: string; studentId: string; amount: LoanAmount },
+      callback,
+    ) => {
+      callback?.(
+        runAndBroadcast(() =>
+          engine.requestBankLoan(payload.clientId, payload.studentId, payload.amount),
+        ),
+      )
+    },
+  )
+  socket.on(
+    'student:requestPeerLoan',
+    (
+      payload: {
+        clientId: string
+        borrowerId: string
+        lenderId: string
+        amount: LoanAmount
+      },
+      callback,
+    ) => {
+      callback?.(
+        runAndBroadcast(() =>
+          engine.requestPeerLoan(
+            payload.clientId,
+            payload.borrowerId,
+            payload.lenderId,
             payload.amount,
           ),
         ),

@@ -18,6 +18,7 @@ export type GameStatus =
 export type AnswerOption = 1 | 2 | 3 | 4 | 5
 export type BetAmount = 10 | 20 | 30 | 50
 export type SavingAmount = 10 | 20 | 30 | 50
+export type LoanAmount = 10 | 20 | 30 | 50
 export type LastResult = 'correct' | 'wrong' | 'none'
 export type AuditSeverity = 'info' | 'warning' | 'critical'
 export type AuditActor = 'teacher' | 'student' | 'system'
@@ -82,6 +83,26 @@ export type AuditEvent = {
   }
 }
 
+export type BankLoanRequest = {
+  id: string
+  studentId: string
+  amount: LoanAmount
+  payback: number
+  status: 'pending' | 'approved' | 'rejected'
+  createdAt: number
+}
+
+export type PeerLoanRequest = {
+  id: string
+  lenderId: string
+  borrowerId: string
+  amount: LoanAmount
+  payback: number
+  dueRound: number
+  status: 'pending' | 'approved' | 'rejected' | 'paid'
+  createdAt: number
+}
+
 export type GameSession = {
   id: string
   title: string
@@ -89,6 +110,8 @@ export type GameSession = {
   currentRoundIndex: number
   roundEndsAt: number | null
   students: Record<string, Student>
+  bankLoanRequests: BankLoanRequest[]
+  peerLoanRequests: PeerLoanRequest[]
   auditLog: AuditEvent[]
   stateDigest: string
   createdAt: number
