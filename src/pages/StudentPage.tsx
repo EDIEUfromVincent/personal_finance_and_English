@@ -3,7 +3,7 @@ import { BET_AMOUNTS, LOAN_AMOUNTS, SAVING_AMOUNTS } from '../data/constants'
 import { QuestionPanel } from '../components/QuestionPanel'
 import { useGame } from '../state/useGame'
 import type { AnswerOption, LoanAmount } from '../types/game'
-import { canBet, calculateInterest } from '../utils/finance'
+import { canBet, calculateInterest, getBankLoanPayback } from '../utils/finance'
 
 type StudentPageProps = {
   studentId: string
@@ -280,7 +280,8 @@ export function StudentPage({ studentId }: StudentPageProps) {
                   onClick={() => askBankLoan(amount)}
                   type="button"
                 >
-                  Borrow ${amount}
+                  <span>Borrow ${amount}</span>
+                  <small>Pay back ${getBankLoanPayback(amount)}</small>
                 </button>
               ))}
             </div>
@@ -329,7 +330,7 @@ export function StudentPage({ studentId }: StudentPageProps) {
               onClick={askPeerLoan}
               type="button"
             >
-              Request Peer Loan
+              Request Peer Loan · Pay back ${peerAmount + Math.ceil(peerAmount * 0.25)}
             </button>
           </div>
         ) : null}

@@ -838,42 +838,43 @@ export function createGameEngine(initialSession = createInitialSession()) {
       if (student.loanCount >= 2) {
         return { session: previous, result: { ok: false, message: 'Bank loan limit reached.' } }
       }
-      if (
-        previous.bankLoanRequests.some(
-          (request) =>
-            request.studentId === studentId && request.status === 'pending',
-        )
-      ) {
-        return { session: previous, result: { ok: false, message: 'Bank loan request already pending.' } }
-      }
-
       const payback = getBankLoanPayback(amount)
       const request = {
         id: `bank-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         studentId,
         amount,
         payback,
-        status: 'pending' as const,
+        status: 'approved' as const,
         createdAt: Date.now(),
       }
+      const before = moneySnapshot(student)
+      const updated = updateStudent(
+        {
+          ...previous,
+          bankLoanRequests: [request, ...previous.bankLoanRequests],
+        },
+        studentId,
+        (current) => ({
+          ...current,
+          cash: current.cash + amount,
+          debt: current.debt + payback,
+          loanCount: current.loanCount + 1,
+        }),
+      )
 
       return {
-        session: appendAudit(
-          {
-            ...previous,
-            bankLoanRequests: [request, ...previous.bankLoanRequests],
-          },
-          {
+        session: appendAudit(updated, {
             actor: 'student',
             actorId: clientId,
-            action: 'request_bank_loan',
-            detail: `${student.name} requested a $${amount} bank loan with $${payback} payback.`,
+            action: 'take_bank_loan',
+            detail: `${student.name} borrowed $${amount} from the bank. Payback is $${payback}.`,
             severity: 'info',
             studentId,
             studentName: student.name,
-          },
-        ),
-        result: { ok: true, message: 'Bank loan requested. Wait for teacher approval.' },
+            before,
+            after: moneySnapshot(updated.students[studentId]),
+        }),
+        result: { ok: true, message: `Borrowed $${amount}. Pay back $${payback}.` },
       }
     })
   }

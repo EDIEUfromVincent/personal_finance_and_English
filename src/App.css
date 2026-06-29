@@ -327,9 +327,18 @@ button:hover:not(:disabled) {
 }
 
 .finance-actions button {
+  align-items: center;
+  display: grid;
+  gap: 2px;
   min-width: 0;
   overflow-wrap: anywhere;
   padding-inline: 8px;
+}
+
+.finance-actions small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .amount-button {
