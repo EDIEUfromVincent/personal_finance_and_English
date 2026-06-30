@@ -177,6 +177,37 @@ export function TeacherPage() {
         <div className="alert-debt-board">
           <div className="panel-heading compact-heading">
             <div>
+              <p className="eyebrow">Bank Loan Ledger</p>
+              <h3>Teacher Bank Loans and Interest</h3>
+            </div>
+            <span className="status-pill">{recentBankLoans.length} active</span>
+          </div>
+          {recentBankLoans.length === 0 ? (
+            <p className="muted">Teacher bank loans will appear here.</p>
+          ) : (
+            <div className="debt-list">
+              {recentBankLoans.map((request) => {
+                const student = session.students[request.studentId]
+                const interest = request.payback - request.amount
+                return (
+                  <article className="debt-item" key={request.id}>
+                    <div>
+                      <strong>{student?.name ?? request.studentId}</strong>
+                      <p>borrowed ${request.amount} from Teacher Bank</p>
+                    </div>
+                    <div className="debt-meta">
+                      <span>Interest ${interest}</span>
+                      <span>Pay back ${request.payback}</span>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <div className="alert-debt-board">
+          <div className="panel-heading compact-heading">
+            <div>
               <p className="eyebrow">Peer Loan Ledger</p>
               <h3>Who Borrowed From Whom</h3>
             </div>

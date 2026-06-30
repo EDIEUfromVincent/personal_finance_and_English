@@ -324,6 +324,32 @@ export function StudentPage({ studentId }: StudentPageProps) {
                 </button>
               ))}
             </div>
+            <div className="student-loan-ledger">
+              <div>
+                <h4>Teacher Bank Loans</h4>
+                {bankLoansTaken.length === 0 ? (
+                  <p className="muted">No bank loans yet.</p>
+                ) : (
+                  <div className="debt-list">
+                    {bankLoansTaken.map((loan) => {
+                      const interest = loan.payback - loan.amount
+                      return (
+                        <article className="debt-item compact-debt-item" key={loan.id}>
+                          <div>
+                            <strong>Teacher Bank</strong>
+                            <p>lent you ${loan.amount}</p>
+                          </div>
+                          <div className="debt-meta">
+                            <span>Interest ${interest}</span>
+                            <span>You owe ${loan.payback}</span>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ) : null}
 
