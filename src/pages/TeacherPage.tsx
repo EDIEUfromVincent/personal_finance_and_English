@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { QuestionPanel } from '../components/QuestionPanel'
 import { RankingTable } from '../components/RankingTable'
 import { rounds } from '../data/rounds'
@@ -72,6 +72,19 @@ export function TeacherPage() {
   const pendingPeerLoans = session.peerLoanRequests.filter(
     (request) => request.status === 'pending',
   )
+  const pendingLoanCount = pendingPeerLoans.length
+
+  useEffect(() => {
+    const baseTitle = 'Teacher Dashboard'
+    document.title =
+      pendingLoanCount > 0
+        ? `(${pendingLoanCount}) Peer Loan Approval`
+        : baseTitle
+
+    return () => {
+      document.title = baseTitle
+    }
+  }, [pendingLoanCount])
 
   return (
     <main className="page teacher-page">
@@ -106,6 +119,58 @@ export function TeacherPage() {
             <strong>{session.status === 'open' ? `${timeRemainingSeconds}s` : '-'}</strong>
           </div>
         </div>
+      </section>
+
+      <section
+        aria-live="polite"
+        className={`teacher-alert ${pendingLoanCount > 0 ? 'has-pending' : ''}`}
+      >
+        <div>
+          <p className="eyebrow">Peer Loan Alert</p>
+          <h2>
+            {pendingLoanCount > 0
+              ? `${pendingLoanCount} approval${pendingLoanCount === 1 ? '' : 's'} needed`
+              : 'No peer loan approvals waiting'}
+          </h2>
+        </div>
+        {pendingLoanCount > 0 ? (
+          <div className="alert-loan-list">
+            {pendingPeerLoans.slice(0, 3).map((request) => {
+              const borrower = session.students[request.borrowerId]
+              const lender = session.students[request.lenderId]
+              return (
+                <article className="alert-loan-item" key={request.id}>
+                  <div>
+                    <strong>{borrower?.name ?? request.borrowerId}</strong>
+                    <p>
+                      From {lender?.name ?? request.lenderId}: ${request.amount}
+                      · debt +${request.payback}
+                    </p>
+                  </div>
+                  <div className="loan-actions">
+                    <button onClick={() => resolvePeerLoan(request.id, true)} type="button">
+                      Approve
+                    </button>
+                    <button
+                      className="danger-button"
+                      onClick={() => resolvePeerLoan(request.id, false)}
+                      type="button"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+            {pendingLoanCount > 3 ? (
+              <p className="alert-overflow">
+                +{pendingLoanCount - 3} more in Loan Monitor
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="muted">New peer loan requests will appear here immediately.</p>
+        )}
       </section>
 
       <section className="panel">

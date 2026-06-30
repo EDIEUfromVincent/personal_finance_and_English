@@ -203,6 +203,59 @@ button:hover:not(:disabled) {
   margin-top: 2px;
 }
 
+.teacher-alert {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--primary);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 36px rgba(30, 55, 51, 0.16);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 0.55fr) minmax(0, 1.45fr);
+  padding: 16px;
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+}
+
+.teacher-alert.has-pending {
+  background: #fff8e6;
+  border-color: #e8c874;
+  border-left-color: var(--warning);
+}
+
+.teacher-alert h2 {
+  font-size: 20px;
+}
+
+.alert-loan-list {
+  display: grid;
+  gap: 8px;
+}
+
+.alert-loan-item {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(32, 76, 73, 0.18);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.alert-loan-item p {
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.alert-overflow {
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .control-grid {
   display: grid;
   gap: 10px;
@@ -616,6 +669,11 @@ tr.high-debt td {
     display: grid;
   }
 
+  .teacher-alert {
+    grid-template-columns: 1fr;
+    top: 8px;
+  }
+
   .session-stats,
   .wallet-grid,
   .control-grid,
@@ -644,6 +702,10 @@ tr.high-debt td {
   }
 
   .loan-item {
+    grid-template-columns: 1fr;
+  }
+
+  .alert-loan-item {
     grid-template-columns: 1fr;
   }
 
