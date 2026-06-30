@@ -256,6 +256,54 @@ button:hover:not(:disabled) {
   font-weight: 900;
 }
 
+.alert-debt-board {
+  background: #fff;
+  border: 1px solid rgba(32, 76, 73, 0.18);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  padding: 12px;
+}
+
+.debt-list {
+  display: grid;
+  gap: 8px;
+}
+
+.debt-item {
+  align-items: center;
+  background: #f9faf7;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.debt-item p {
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.debt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.debt-meta span {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 8px;
+}
+
 .control-grid {
   display: grid;
   gap: 10px;
@@ -456,6 +504,27 @@ button:hover:not(:disabled) {
 
 .custom-bet-label {
   margin-bottom: 12px;
+}
+
+.student-loan-ledger {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+  padding-top: 14px;
+}
+
+.student-loan-ledger h4 {
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.compact-debt-item {
+  grid-template-columns: 1fr;
+}
+
+.compact-debt-item .debt-meta {
+  justify-content: flex-start;
 }
 
 .loan-queue {
@@ -707,6 +776,14 @@ tr.high-debt td {
 
   .alert-loan-item {
     grid-template-columns: 1fr;
+  }
+
+  .debt-item {
+    grid-template-columns: 1fr;
+  }
+
+  .debt-meta {
+    justify-content: flex-start;
   }
 
   .audit-meta {

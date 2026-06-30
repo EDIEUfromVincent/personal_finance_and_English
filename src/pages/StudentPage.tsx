@@ -121,6 +121,14 @@ export function StudentPage({ studentId }: StudentPageProps) {
     ? (students.find((item) => item.id === pendingPeerLoan.lenderId)?.name ??
       'classmate')
     : ''
+  const lentPeerLoans = session.peerLoanRequests.filter(
+    (request) =>
+      request.lenderId === selectedStudent.id && request.status === 'approved',
+  )
+  const borrowedPeerLoans = session.peerLoanRequests.filter(
+    (request) =>
+      request.borrowerId === selectedStudent.id && request.status === 'approved',
+  )
   const lenderHasEnoughCash =
     !selectedPeerLender || selectedPeerLender.cash >= peerAmount
 
@@ -391,6 +399,61 @@ export function StudentPage({ studentId }: StudentPageProps) {
             >
               Request Peer Loan · Pay back ${peerPayback}
             </button>
+            <div className="student-loan-ledger">
+              <div>
+                <h4>Money I Lent</h4>
+                {lentPeerLoans.length === 0 ? (
+                  <p className="muted">No classmates have borrowed from you yet.</p>
+                ) : (
+                  <div className="debt-list">
+                    {lentPeerLoans.map((loan) => {
+                      const borrower = students.find(
+                        (item) => item.id === loan.borrowerId,
+                      )
+                      return (
+                        <article className="debt-item compact-debt-item" key={loan.id}>
+                          <div>
+                            <strong>{borrower?.name ?? loan.borrowerId}</strong>
+                            <p>borrowed ${loan.amount} from you</p>
+                          </div>
+                          <div className="debt-meta">
+                            <span>Pay back ${loan.payback}</span>
+                            <span>Round {loan.dueRound}</span>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h4>Money I Borrowed</h4>
+                {borrowedPeerLoans.length === 0 ? (
+                  <p className="muted">No approved peer loans yet.</p>
+                ) : (
+                  <div className="debt-list">
+                    {borrowedPeerLoans.map((loan) => {
+                      const lender = students.find(
+                        (item) => item.id === loan.lenderId,
+                      )
+                      return (
+                        <article className="debt-item compact-debt-item" key={loan.id}>
+                          <div>
+                            <strong>{lender?.name ?? loan.lenderId}</strong>
+                            <p>lent you ${loan.amount}</p>
+                          </div>
+                          <div className="debt-meta">
+                            <span>You owe ${loan.payback}</span>
+                            <span>Round {loan.dueRound}</span>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ) : null}
       </section>

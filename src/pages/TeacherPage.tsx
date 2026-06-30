@@ -73,6 +73,9 @@ export function TeacherPage() {
     (request) => request.status === 'pending',
   )
   const pendingLoanCount = pendingPeerLoans.length
+  const activePeerLoans = session.peerLoanRequests
+    .filter((request) => request.status === 'approved')
+    .slice(0, 10)
 
   useEffect(() => {
     const baseTitle = 'Teacher Dashboard'
@@ -171,6 +174,40 @@ export function TeacherPage() {
         ) : (
           <p className="muted">New peer loan requests will appear here immediately.</p>
         )}
+        <div className="alert-debt-board">
+          <div className="panel-heading compact-heading">
+            <div>
+              <p className="eyebrow">Peer Loan Ledger</p>
+              <h3>Who Borrowed From Whom</h3>
+            </div>
+            <span className="status-pill">{activePeerLoans.length} active</span>
+          </div>
+          {activePeerLoans.length === 0 ? (
+            <p className="muted">Approved peer loans will appear here.</p>
+          ) : (
+            <div className="debt-list">
+              {activePeerLoans.map((request) => {
+                const borrower = session.students[request.borrowerId]
+                const lender = session.students[request.lenderId]
+                return (
+                  <article className="debt-item" key={request.id}>
+                    <div>
+                      <strong>{borrower?.name ?? request.borrowerId}</strong>
+                      <p>
+                        borrowed ${request.amount} from{' '}
+                        {lender?.name ?? request.lenderId}
+                      </p>
+                    </div>
+                    <div className="debt-meta">
+                      <span>Pay back ${request.payback}</span>
+                      <span>Due round {request.dueRound}</span>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="panel">
