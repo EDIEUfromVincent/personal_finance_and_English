@@ -256,14 +256,23 @@ button:hover:not(:disabled) {
   font-weight: 900;
 }
 
-.alert-debt-board {
-  background: #fff;
-  border: 1px solid rgba(32, 76, 73, 0.18);
-  border-radius: var(--radius);
+.loan-ledger-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.loan-ledger-panel {
   display: grid;
   gap: 10px;
-  grid-column: 1 / -1;
-  padding: 12px;
+}
+
+.bank-ledger-panel {
+  border-left: 6px solid var(--accent);
+}
+
+.peer-ledger-panel {
+  border-left: 6px solid var(--primary);
 }
 
 .debt-list {
@@ -720,6 +729,7 @@ tr.high-debt td {
   .hero-band,
   .student-layout,
   .split-layout,
+  .loan-ledger-grid,
   .session-header {
     grid-template-columns: 1fr;
   }

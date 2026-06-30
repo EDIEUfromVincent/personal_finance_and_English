@@ -174,10 +174,13 @@ export function TeacherPage() {
         ) : (
           <p className="muted">New peer loan requests will appear here immediately.</p>
         )}
-        <div className="alert-debt-board">
+      </section>
+
+      <section className="loan-ledger-grid">
+        <div className="panel loan-ledger-panel bank-ledger-panel">
           <div className="panel-heading compact-heading">
             <div>
-              <p className="eyebrow">Bank Loan Ledger</p>
+              <p className="eyebrow">Teacher Bank Ledger</p>
               <h3>Teacher Bank Loans and Interest</h3>
             </div>
             <span className="status-pill">{recentBankLoans.length} active</span>
@@ -205,7 +208,7 @@ export function TeacherPage() {
             </div>
           )}
         </div>
-        <div className="alert-debt-board">
+        <div className="panel loan-ledger-panel peer-ledger-panel">
           <div className="panel-heading compact-heading">
             <div>
               <p className="eyebrow">Peer Loan Ledger</p>
